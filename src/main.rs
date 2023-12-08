@@ -3,7 +3,7 @@
 #![feature(type_alias_impl_trait)]
 
 use atomic_float::AtomicF32;
-use core::{fmt::Write, ops::Div, sync::atomic};
+use core::{ops::Div, sync::atomic};
 use embassy_sync::{
     blocking_mutex::raw::CriticalSectionRawMutex,
     pipe::{Pipe, Reader, Writer},
@@ -29,7 +29,7 @@ use hal::{
     },
     peripherals::{Interrupt, Peripherals, I2C0, MCPWM0, UART0},
     prelude::*,
-    uart::{UartRx, UartTx},
+    uart::UartRx,
     Delay, Uart,
 };
 use heapless::HistoryBuffer;
@@ -106,7 +106,14 @@ async fn motor_control_task(
 
     loop {
         let mech_angle = MECH_ANGLE.load(atomic::Ordering::Relaxed);
-        println!("Mech: {:+2.2}", mech_angle.to_degrees());
+        // println!("Mech: {:+2.2}", mech_angle.to_degrees());
+        println!(
+            "{:+2.2}, {:+2.2}, {:+2.2}, {:+2.2}",
+            mech_angle.to_degrees(),
+            I_U.load(atomic::Ordering::Relaxed),
+            I_V.load(atomic::Ordering::Relaxed),
+            I_W.load(atomic::Ordering::Relaxed)
+        );
         let elec_angle_from_mech = (mech_angle * 7.0).rem_euclid(2.0 * core::f32::consts::PI);
 
         if signal.signaled() {
@@ -144,17 +151,10 @@ async fn motor_control_task(
                 };
 
                 let output = mech_angle_pid.next_control_output(error_mech);
-                if error_mech.abs() < 0.3 * 2.0 * core::f32::consts::PI / 360.0 {
-                    set_voltage(
-                        (elec_angle_from_mech + core::f32::consts::PI / 2.0).to_degrees(),
-                        0.0,
-                    );
-                } else {
-                    set_voltage(
-                        (elec_angle_from_mech + core::f32::consts::PI / 2.0).to_degrees(),
-                        output.output,
-                    );
-                }
+                set_voltage(
+                    (elec_angle_from_mech + core::f32::consts::PI / 2.0).to_degrees(),
+                    output.output,
+                );
             }
         }
 
@@ -260,21 +260,12 @@ async fn serial_rx_handler(
 
 #[embassy_executor::task]
 async fn serial_packet_processor(
-    mut tx: UartTx<'static, UART0>,
     pipe_rx: Reader<'static, CriticalSectionRawMutex, SERIAL_RX_PIPE_SIZE>,
     signal: &'static Signal<CriticalSectionRawMutex, MotorControlState>,
 ) {
     loop {
         let mut buf = [0u8; 256];
-        let bytes_read = pipe_rx.read(buf.as_mut()).await;
-        // write!(
-        //     &mut tx,
-        //     "Pipe read {} bytes: {:?}\r\n",
-        //     bytes_read,
-        //     &buf[..bytes_read]
-        // )
-        // .unwrap();
-        // write!(&mut tx, "{:?}", &buf[..bytes_read]).unwrap();
+        pipe_rx.read(buf.as_mut()).await;
 
         if let Some(n) = char::from(buf[0]).to_digit(10) {
             signal.signal(MotorControlState::Cogging(n as u8));
@@ -407,7 +398,7 @@ fn main() -> ! {
     println!("Hello world!");
 
     // Embassy Channels
-    let (tx, rx) = uart0.split();
+    let (_, rx) = uart0.split();
     let serial_rx_pipe = make_static!(Pipe::<CriticalSectionRawMutex, SERIAL_RX_PIPE_SIZE>::new());
     let (serial_pipe_rx, serial_pipe_tx) = serial_rx_pipe.split();
 
@@ -429,19 +420,13 @@ fn main() -> ! {
 
     delay.delay_ms(200u32);
 
-    // motor_state_signal.signal(MotorControlState::Velocity(15.0));
-    // motor_state_signal.signal(MotorControlState::Torque(1000.0));
-    motor_state_signal.signal(MotorControlState::Cogging(8));
+    motor_state_signal.signal(MotorControlState::Idle);
 
     // Low priority executor: runs in thread mode
     let executor = EXECUTOR_LOW.init(Executor::new());
     executor.run(|spawner| {
         spawner.must_spawn(serial_rx_handler(rx, serial_pipe_tx));
-        spawner.must_spawn(serial_packet_processor(
-            tx,
-            serial_pipe_rx,
-            motor_state_signal,
-        )); // Process Serial Packet
+        spawner.must_spawn(serial_packet_processor(serial_pipe_rx, motor_state_signal)); // Process Serial Packet
         spawner.must_spawn(sensor_task(i2c, adc1, adc_u_pin, adc_v_pin, adc_w_pin));
         // blocking read sensor data
     });
@@ -456,6 +441,7 @@ enum MotorControlState {
     Cogging(u8),
 }
 
+#[allow(dead_code)]
 fn s_pwm(theta: f32, gain: f32) -> (f32, f32, f32) {
     let (ub, ua) = theta.sin_cos();
     (
