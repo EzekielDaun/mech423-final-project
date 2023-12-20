@@ -96,8 +96,8 @@ async fn motor_control_task(
 
     // Initialize Task Locals
     let mut mech_angle_pid = Pid::<f32>::new(0.0, 1000.0);
-    mech_angle_pid.p(2000.0, 1000.0);
-    mech_angle_pid.i(1.0, 1000.0);
+    mech_angle_pid.p(3000.0, 1000.0);
+    // mech_angle_pid.i(1.0, 300.0);
 
     let mut state = MotorControlState::Position(0.0, 1000.0);
     let mut position = 0.0;
@@ -267,13 +267,13 @@ async fn serial_packet_processor(
         let mut buf = [0u8; 256];
         pipe_rx.read(buf.as_mut()).await;
 
-        if let Some(n) = char::from(buf[0]).to_digit(10) {
-            signal.signal(MotorControlState::Cogging(n as u8));
-        } else {
-            match char::from(buf[0]) {
-                't' => signal.signal(MotorControlState::Torque(1000.0)),
-                'v' => signal.signal(MotorControlState::Velocity(20.0)),
-                _ => {}
+        match char::from(buf[0]) {
+            't' => signal.signal(MotorControlState::Torque(1000.0)),
+            'v' => signal.signal(MotorControlState::Velocity(20.0)),
+            c => {
+                if let Some(n) = char::from(c).to_digit(36) {
+                    signal.signal(MotorControlState::Cogging(n as u8));
+                }
             }
         }
     }
