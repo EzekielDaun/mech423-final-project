@@ -96,7 +96,7 @@ async fn motor_control_task(
 
     // Initialize Task Locals
     let mut mech_angle_pid = Pid::<f32>::new(0.0, 1000.0);
-    mech_angle_pid.p(3000.0, 1000.0);
+    mech_angle_pid.p(2000.0, 1000.0);
     // mech_angle_pid.i(1.0, 300.0);
 
     let mut state = MotorControlState::Position(0.0, 1000.0);
@@ -320,14 +320,14 @@ fn main() -> ! {
         let (pwm_pin_uh, pwm_pin_ul) = mcpwm.operator0.with_pins(
             io.pins.gpio16.into_push_pull_output(),
             PwmPinConfig::new(
-                PwmActions::UP_ACTIVE_HIGH
+                PwmActions::UP_DOWN_ACTIVE_HIGH
                     .on_down_counting_timer_equals_timestamp(UpdateAction::SetHigh)
                     .on_up_counting_timer_equals_timestamp(UpdateAction::SetLow),
                 PwmUpdateMethod::SYNC_ON_ZERO,
             ),
             io.pins.gpio17.into_push_pull_output(),
             PwmPinConfig::new(
-                PwmActions::UP_ACTIVE_HIGH
+                PwmActions::UP_DOWN_ACTIVE_HIGH
                     .on_down_counting_timer_equals_timestamp(UpdateAction::SetLow)
                     .on_up_counting_timer_equals_timestamp(UpdateAction::SetHigh),
                 PwmUpdateMethod::SYNC_ON_ZERO,
@@ -338,14 +338,14 @@ fn main() -> ! {
         let (pwm_pin_vh, pwm_pin_vl) = mcpwm.operator1.with_pins(
             io.pins.gpio18.into_push_pull_output(),
             PwmPinConfig::new(
-                PwmActions::UP_ACTIVE_HIGH
+                PwmActions::UP_DOWN_ACTIVE_HIGH
                     .on_down_counting_timer_equals_timestamp(UpdateAction::SetHigh)
                     .on_up_counting_timer_equals_timestamp(UpdateAction::SetLow),
                 PwmUpdateMethod::SYNC_ON_ZERO,
             ),
             io.pins.gpio23.into_push_pull_output(),
             PwmPinConfig::new(
-                PwmActions::UP_ACTIVE_HIGH
+                PwmActions::UP_DOWN_ACTIVE_HIGH
                     .on_down_counting_timer_equals_timestamp(UpdateAction::SetLow)
                     .on_up_counting_timer_equals_timestamp(UpdateAction::SetHigh),
                 PwmUpdateMethod::SYNC_ON_ZERO,
@@ -356,14 +356,14 @@ fn main() -> ! {
         let (pwm_pin_wh, pwm_pin_wl) = mcpwm.operator2.with_pins(
             io.pins.gpio19.into_push_pull_output(),
             PwmPinConfig::new(
-                PwmActions::UP_ACTIVE_HIGH
+                PwmActions::UP_DOWN_ACTIVE_HIGH
                     .on_down_counting_timer_equals_timestamp(UpdateAction::SetHigh)
                     .on_up_counting_timer_equals_timestamp(UpdateAction::SetLow),
                 PwmUpdateMethod::SYNC_ON_ZERO,
             ),
             io.pins.gpio33.into_push_pull_output(),
             PwmPinConfig::new(
-                PwmActions::UP_ACTIVE_HIGH
+                PwmActions::UP_DOWN_ACTIVE_HIGH
                     .on_down_counting_timer_equals_timestamp(UpdateAction::SetLow)
                     .on_up_counting_timer_equals_timestamp(UpdateAction::SetHigh),
                 PwmUpdateMethod::SYNC_ON_ZERO,
